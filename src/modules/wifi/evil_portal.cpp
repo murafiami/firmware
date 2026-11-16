@@ -144,6 +144,7 @@ void EvilPortal::beginAP() {
     while (millis() - tmp < 3000) yield();
 
     setupRoutes();
+    setupBruceChatRoutes(webServer);
     dnsServer->start(53, "*", WiFi.softAPIP());
     webServer.begin();
 }
