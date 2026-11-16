@@ -1,14 +1,13 @@
-#ifndef BRUCE_CHAT_BACKEND_H
-#define BRUCE_CHAT_BACKEND_H
+#pragma once
 
-#include <Arduino.h>
-#include <SD.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+#include <FS.h>
+#include <SD.h>
 #include <vector>
 
-static std::vector<String> bruceChatEventsQueue;
-static const size_t BRUCE_MAX_CHAT_EVENTS = 25;
+static std::vector<String> bruceChatQueue;
+static const size_t MAX_BRUCE_CHAT_QUEUE = 25;
 
 inline void setupBruceChatRoutes(AsyncWebServer &server) {
     server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -31,50 +30,40 @@ inline void setupBruceChatRoutes(AsyncWebServer &server) {
         if (SD.exists("/portals/chat/db.json")) {
             request->send(SD, "/portals/chat/db.json", "application/json");
         } else {
-            request->send(200, "application/json", "{\"accounts\":{\"admin\":{\"nick\":\"admin\",\"password\":\"1234\",\"color\":\"#d32f2f\",\"role\":\"admin\"}},\"banned\":[]}");
+            request->send(200, "application/json", "{"accounts":{"admin":{"nick":"admin","password":"1234","color":"#d32f2f","role":"admin"}},"banned":[]}");
         }
     });
 
     server.on("/messages", HTTP_GET, [](AsyncWebServerRequest *request) {
         String json = "[";
-        for (size_t i = 0; i < bruceChatEventsQueue.size(); i++) {
-            json += bruceChatEventsQueue[i];
-            if (i + 1 < bruceChatEventsQueue.size()) {
-                json += ",";
-            }
+        for (size_t i = 0; i < bruceChatQueue.size(); i++) {
+            json += bruceChatQueue[i];
+            if (i + 1 < bruceChatQueue.size()) json += ",";
         }
         json += "]";
         request->send(200, "application/json", json);
     });
 
-    server.on("/post", HTTP_POST, [](AsyncWebServerRequest *request) {
+    server.on("/chat_post", HTTP_POST, [](AsyncWebServerRequest *request) {
         if (request->hasParam("data", true)) {
             String rawData = request->getParam("data", true)->value();
-
             DynamicJsonDocument doc(4096);
-            DeserializationError err = deserializeJson(doc, rawData);
-            if (!err) {
+            if (!deserializeJson(doc, rawData)) {
                 String type = doc["type"] | "";
-
                 if (type == "db_sync" && doc.containsKey("db")) {
-                    if (!SD.exists("/portals/chat")) {
-                        SD.mkdir("/portals/chat");
-                    }
                     File f = SD.open("/portals/chat/db.json", FILE_WRITE);
                     if (f) {
                         serializeJson(doc["db"], f);
                         f.close();
                     }
                 } else {
-                    if (bruceChatEventsQueue.size() >= BRUCE_MAX_CHAT_EVENTS) {
-                        bruceChatEventsQueue.erase(bruceChatEventsQueue.begin());
+                    if (bruceChatQueue.size() >= MAX_BRUCE_CHAT_QUEUE) {
+                        bruceChatQueue.erase(bruceChatQueue.begin());
                     }
-                    bruceChatEventsQueue.push_back(rawData);
+                    bruceChatQueue.push_back(rawData);
                 }
             }
         }
         request->send(200, "text/plain", "OK");
     });
 }
-
-#endif // BRUCE_CHAT_BACKEND_H
