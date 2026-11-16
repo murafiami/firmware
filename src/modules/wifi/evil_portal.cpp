@@ -8,6 +8,8 @@
 #include "core/wifi/wifi_common.h"
 #include "esp_wifi.h"
 #include "wifi_atks.h"
+#include "bruce_chat_backend.h"
+
 
 static DNSServer &sharedEvilPortalDnsServer() {
     static DNSServer server;
